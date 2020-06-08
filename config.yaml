@@ -1,0 +1,7 @@
+mysql:
+    host: rds.host.us-east-2.rds.amazonaws.com
+    port: 3306
+    user: userlogstash
+    password: password
+    db: logstash
+    table: sales
