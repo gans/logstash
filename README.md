@@ -4,10 +4,11 @@ Retrieve audit logs from RDS and put in S3
 ## Development
 In development phase is used a centos docker image to run boto3 commands, a RDS MySQL database and a S3 instance.
 
-### Requirements 
+#### Requirements 
  1. docker
  2. aws user (not root) com a police 'PowerUserAccess'
-### Install
+ 
+#### Install
 ```
 docker pull centos
 docker run --name centos-challenge -i -t centos
@@ -26,7 +27,7 @@ git clone https://github.com/gans/logstash.git
 cd logstash
 ```
 
-#### Export the aws keys:
+##### Export the aws keys:
 
 export AWS_ACCESS_KEY_ID=somevalue
 
@@ -34,22 +35,22 @@ export AWS_SECRET_ACCESS_KEY=somevalue
 
 export AWS_DEFAULT_REGION="us-east-2"
 
-### Init the RDS and S3 resources
+##### Init the RDS and S3 resources
 
 ```
 cd logstash/aws_resources
 terraform init
 terraform plan --out rds-s3-plan
-terraform apply "rds-plan"
+terraform apply rds-s3-plan
 ```
 
 Terraform output will show the rds end point: keep that
 
-### Init date mock:
+##### Init date mock:
 
 Edit config.py and change the MySQL host with rds endpoint.
 
-Init the database structure (change the host to rds endpoint). Password is int config.py
+Init the database structure (change the host to rds endpoint). Password is in config.py
 ```
 mysql -h [host] -P 3306 -u hotmart -p -e "CREATE DATABASE logstash"
 mysql -h [host] -P 3306 -u hotmart -p -e "USE logstash; CREATE TABLE IF NOT EXISTS sales (id VARCHAR(23), ts_sale DATETIME, name VARCHAR(23));"
@@ -60,7 +61,7 @@ python3 mock_mysql.py
 ```
 This will create logs with 100Kb and tests can be made.
 
-### Sending the logs files to S3
+##### Sending the logs files to S3
 
 run the bellow command:
 
@@ -82,4 +83,19 @@ cd logstash/aws_lambda
 terraform init
 terraform plan --out lambda-plan
 terraform apply "lambda-plan"
+```
+
+## API Request Throttling
+
+lambda timeout is 900 seconds max
+
+Throttling rate config
+https://boto3.amazonaws.com/v1/documentation/api/latest/guide/retries.html
+```
+config = Config(
+   retries = {
+      "max_attempts": 10,
+      "mode": "standard"
+   }
+)
 ```
