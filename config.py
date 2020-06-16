@@ -1,8 +1,8 @@
 # mysql access 
-mysql_host = "challengerds1.cvj5a6dgpkjk.us-east-2.rds.amazonaws.com"
+mysql_host = "host"
 mysql_port = 3306
-mysql_user = "hotmart"
-mysql_password = "kdjuyt64gS3s2gksu"
+mysql_user = "user"
+mysql_password = "password"
 mysql_db = "logstash"
 mysql_table = "sales"
 
