@@ -1,9 +1,44 @@
+variable "audit_id" {
+  type = string
+  default = "challenge-audit-test1"
+}
+
+variable "rds_id" {
+  type = string
+  default = "challengerds1"
+}
+
+variable "rds_name" {
+  type = string
+  default  = "challenge1"
+}
+
+variable "rds_username" {
+  type = string
+  default = "hotmart"
+}
+
+variable "rds_password" {
+  type = string
+  default = "kdjuyt64gS3s2gksu"
+}
+
+variable "s3_bucket" {
+  type = string
+  default = "challengebucket1"
+}
+
+variable "aws_region" {
+  type = string
+  default = "us-east-2"
+}
+
 provider "aws" {
 }
 
-resource "aws_db_option_group" "hotmart-audit-test1" {
-  name = "hotmart-audit-test1"
-  option_group_description = "Hotmart audit configuration"
+resource "aws_db_option_group" "challenge-audit-test1" {
+  name = var.audit_id
+  option_group_description = "Challenge audit configuration"
   engine_name = "mysql"
   major_engine_version = "5.7"
 
@@ -31,25 +66,30 @@ resource "aws_db_instance" "main" {
   engine = "mysql"
   engine_version = "5.7.28"
   instance_class = "db.t2.micro"
-  name = "hotmart"
-  username = "hotmart"
-  password = "kdjuyt64gS3s2gksu"
+  name = var.rds_name
+  username = var.rds_username
+  password = var.rds_password
   port = 3306
-  identifier = "hotmart-test-2"
+  identifier = var.rds_id
   parameter_group_name = "default.mysql5.7"
-  option_group_name = "hotmart-audit-test1"
-  skip_final_snapshot       = true
+  option_group_name = var.audit_id
+  skip_final_snapshot = true
   final_snapshot_identifier = "Ignore"
   publicly_accessible  = true
 }
 
+output "rds_endpoint" {
+  value = "${aws_db_instance.main.endpoint}"
+}
+
 resource "aws_s3_bucket" "bucket" {
-    bucket                      = "hotmart-gans-s3-2"
-    region                      = "us-east-2"
-    request_payer               = "BucketOwner"
+    bucket = var.s3_bucket
+    region = var.aws_region
+    request_payer = "BucketOwner"
 
     versioning {
         enabled    = false
         mfa_delete = false
     }
 }
+

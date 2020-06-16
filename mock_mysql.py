@@ -1,8 +1,8 @@
 import pymysql
-import yaml
 import random
 import time
 from datetime import datetime
+import config
 
 class App:
     """
@@ -42,6 +42,9 @@ class App:
             self.connection.close()
 
 if __name__ == "__main__":
-    stream = open("config.yaml", "r")
-    config = yaml.load(stream, Loader=yaml.FullLoader)
-    App(**config["mysql"])()
+    App(host=config.mysql_host,
+        port=config.mysql_port,
+        user=config.mysql_user,
+        password=config.mysql_password,
+        db=config.mysql_db,
+        table=config.mysql_table)()

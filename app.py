@@ -1,21 +1,21 @@
 #encoding: utf-8
+import os
 import boto3, botocore
 import json
 import datetime
 import logging
 import sys
+import config
 
-RDS_ID = "rds-id"
-AWS_REGION = "us-east-2"
-BUCKET_NAME = "bucket-id"
-AWS_ACCESS_ID = "id"
-AWS_SECRET = "key"
 
 S3_CONFIG_FILE = "s3_config.json"
 
 class App:
 
-    def __init__(self, debug=False):
+    def __init__(self, rds_client, s3_client, debug=False):
+
+        self.rds_client = rds_client
+        self.s3_client = s3_client
 
         self.logger = logging.getLogger()
         self.logger.setLevel(logging.INFO)
@@ -27,15 +27,7 @@ class App:
             self.logger.addHandler(handler)
                 
         self.logger.info("start retrivieng rds log")
-        self.rds_client = boto3.client("rds",
-                                    region_name=AWS_REGION,
-                                    aws_access_key_id=AWS_ACCESS_ID,
-                                    aws_secret_access_key=AWS_SECRET)
-        self.s3_client = boto3.client("s3",
-                                    region_name=AWS_REGION,
-                                    aws_access_key_id=AWS_ACCESS_ID,
-                                    aws_secret_access_key=AWS_SECRET)
- 
+
         
         self.last_written = self.get_last_s3_written()
         self.logger.info("last s3 written is {}".format(self.last_written))
@@ -52,7 +44,7 @@ class App:
 
     def get_last_s3_written(self):
         try:
-            response = self.s3_client.head_bucket(Bucket=BUCKET_NAME)
+            response = self.s3_client.head_bucket(Bucket=config.aws_bucket_instance)
         except botocore.exceptions.ClientError as e:
             error_code = int(e.response['ResponseMetadata']['HTTPStatusCode'])
             if error_code == 404:
@@ -62,7 +54,7 @@ class App:
                             e.response["Error"]["Message"]))
 
         try:
-            response = self.s3_client.get_object(Bucket=BUCKET_NAME, Key=S3_CONFIG_FILE)
+            response = self.s3_client.get_object(Bucket=config.aws_bucket_instance, Key=S3_CONFIG_FILE)
             j = response["Body"].read(response["ContentLength"])
             j = json.loads(j)
             self.logger.info("config file was sucessfull written on s3")
@@ -84,7 +76,7 @@ class App:
     
         while more_logs:
             response = self.rds_client.describe_db_log_files(
-                DBInstanceIdentifier=RDS_ID,
+                DBInstanceIdentifier=config.aws_rds_instance,
                 FilenameContains="server_audit.log.",
                 FileLastWritten=self.last_written,
                 Marker=marker
@@ -108,7 +100,7 @@ class App:
 
         last = logs_desc[-1]
         try:
-            response = self.s3_client.put_object(Bucket=BUCKET_NAME,
+            response = self.s3_client.put_object(Bucket=config.aws_bucket_instance,
                                                 Key=S3_CONFIG_FILE,
                                                 Body=json.dumps(last))
         except botocore.exceptions.ClientError as e:
@@ -139,7 +131,7 @@ class App:
             uploaded_bytes = 0
             i = 1
 
-            log_file = dwl(RDS_ID, log["LogFileName"], "0")
+            log_file = dwl(config.aws_rds_instance, log["LogFileName"], "0")
             log_file_data = log_file["LogFileData"]
 
             part = self.upload_s3_part(
@@ -173,14 +165,14 @@ class App:
     ### S3
     def create_s3_mpu(self, file_name):
         return self.s3_client.create_multipart_upload(
-                    Bucket=BUCKET_NAME,
+                    Bucket=config.aws_bucket_instance,
                     Key=file_name)["UploadId"]
 
 
     def upload_s3_part(self, log_file_data, id_file_log, mpu_id, part_id):
         return self.s3_client.upload_part(
                                             Body=log_file_data,
-                                            Bucket=BUCKET_NAME,
+                                            Bucket=config.aws_bucket_instance,
                                             Key=id_file_log,
                                             UploadId=mpu_id,
                                             PartNumber=part_id)
@@ -188,7 +180,7 @@ class App:
 
     def complete_s3_upload(self, id_file_log, mpu_id, parts):
         return self.s3_client.complete_multipart_upload(
-                                    Bucket=BUCKET_NAME,
+                                    Bucket=config.aws_bucket_instance,
                                     Key=id_file_log,
                                     UploadId=mpu_id,
                                     MultipartUpload={"Parts": parts})
@@ -196,8 +188,20 @@ class App:
  
 
 def lambda_handler(event, context):
-    app = App()
+    rds_client = boto3.client("rds",
+                            region_name=config.aws_region)
+    s3_client = boto3.client("s3",
+                            region_name=config.aws_region)
+    app = App(rds_client=rds_client, s3_client=s3_client) 
 
 
 if __name__ == "__main__":
-    app = App(True) 
+    rds_client = boto3.client("rds",
+                            region_name=config.aws_region,
+                            aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
+                            aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"])
+    s3_client = boto3.client("s3",
+                            region_name=config.aws_region,
+                            aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
+                            aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"])
+    app = App(rds_client=rds_client, s3_client=s3_client, debug=True) 
