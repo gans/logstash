@@ -1,33 +1,32 @@
 # logstash
-Busca logs de auditoria do RDS e salva no S3
+Retrieve audit logs from RDS and put in S3
 
-## testes
+## Development
+In development phase is used a centos docker image to run boto3 commands, a RDS MySQL database and a S3 instance.
 
-### Requirimentos 
+### Requirements 
  1. docker
- 2. Usuário do aws (não root) com a police 'PowerUserAccess'
-### instalação
+ 2. aws user (not root) com a police 'PowerUserAccess'
+### Install
 ```
 docker pull centos
-docker ps
-docker exec -it admiring_engelbart /bin/bash
+docker run --name centos-challenge -i -t centos
 yum update
-yum install python3
-yum install git
-yum install vim
+yum -y install python3 git vim unzip mysql.x86_64
+cd /tmp
 curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
 python3 get-pip.py
-pip3 install boto3
-pip3 install pyyaml
-pip3 install PyMySQL
+pip3 install boto3 PyMySQL
+curl https://releases.hashicorp.com/terraform/0.12.26/terraform_0.12.26_linux_amd64.zip -o terraform.zip
+unzip terraform.zip
+mv terraform /usr/local/bin/
 adduser gans
 su - gans
 git clone https://github.com/gans/logstash.git
 cd logstash
 ```
-install Terraform https://learn.hashicorp.com/terraform/getting-started/install.html
 
-#### Exporte as variáveis de acesso ao aws:
+#### Export the aws keys:
 
 export AWS_ACCESS_KEY_ID=somevalue
 
@@ -35,36 +34,43 @@ export AWS_SECRET_ACCESS_KEY=somevalue
 
 export AWS_DEFAULT_REGION="us-east-2"
 
-### Inicialize os recursos aws
+### Init the RDS and S3 resources
 
 ```
 cd logstash/aws_resources
 terraform init
-terraform plan --out rds-plan
+terraform plan --out rds-s3-plan
 terraform apply "rds-plan"
 ```
 
-### Inicialize mock de dados:
+Terraform output will show the rds end point: keep that
+
+### Init date mock:
+
+Edit config.py and change the MySQL host with rds endpoint.
+
+Init the database structure (change the host to rds endpoint). Password is int config.py
 ```
-mysql -h [hostrds troque].us-east-2.rds.amazonaws.com -P 3306 -u hotmart -p -e "CREATE DATABASE hotmart"
-mysql -h [hostrds troque].us-east-2.rds.amazonaws.com -P 3306 -u hotmart -p -e "USE hotmart; CREATE TABLE IF NOT EXISTS sales (id VARCHAR(23), ts_sale DATETIME, name VARCHAR(23));"
+mysql -h [host] -P 3306 -u hotmart -p -e "CREATE DATABASE logstash"
+mysql -h [host] -P 3306 -u hotmart -p -e "USE logstash; CREATE TABLE IF NOT EXISTS sales (id VARCHAR(23), ts_sale DATETIME, name VARCHAR(23));"
 ```
-Edite os dados em config.yaml e rode o app de mock:
+ Then init the mock:
 ```
 python3 mock_mysql.py
 ```
-Com isso será gerado arquivos de logs de 100Kb, dessa forma possibilitando executar testes locais.
+This will create logs with 100Kb and tests can be made.
 
-### Teste o envio de logs
-Edite o arquivo app.py e modifique as variáveis RDS_ID, AWS_REGION, BUCKET_NAME, AWS_ACCESS_ID, AWS_SECRET e rode o script:
+### Sending the logs files to S3
+
+run the bellow command:
+
 ```
 python3 app.py
 ```
-Se tudo estiver correto o S3 ira conter os logs.
+If no errors can be found the logs files will be in S3.
 
 
-## Produção
-Modifique os arquivos aws_lambda/lambda.tf e aws_resources/main.tf com os valores de produção caso necessário. Execute a implantação dos recursos e função lambda:
+## Production
 
 ```
 cd logstash/aws_resources
@@ -74,6 +80,6 @@ terraform apply "rds-plan"
 
 cd logstash/aws_lambda
 terraform init
-terraform plan --out rds-plan
-terraform apply "rds-plan"
+terraform plan --out lambda-plan
+terraform apply "lambda-plan"
 ```
